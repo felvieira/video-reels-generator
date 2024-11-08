@@ -1,0 +1,43 @@
+{
+  "name": "video-editor-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down",
+    "docker:dev": "docker-compose up --build"
+  },
+  "dependencies": {
+    "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/next-js": "^2.2.0",
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.11.3",
+    "@emotion/styled": "^11.11.0",
+    "@ffmpeg/core": "^0.12.4",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
+    "@mediapipe/face_detection": "^0.4.1",
+    "@mediapipe/tasks-vision": "^0.10.12",
+    "@openrouter/ai-sdk-provider": "^0.0.6",
+    "ai": "^2.2.35",
+    "axios": "^1.7.7",
+    "framer-motion": "^11.0.5",
+    "next": "^14.1.0",
+    "openai": "^4.28.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-dropzone": "^14.2.3",
+    "react-webcam": "^7.2.0",
+    "react-youtube": "^10.1.0",
+    "youtube-dl-exec": "^3.0.10"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

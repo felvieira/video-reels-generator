@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - ./public:/app/public
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_URL=http://localhost:3000
+      - WATCHPACK_POLLING=true
+    command: npm run dev
+    labels:
+      - "traefik.http.routers.app.middlewares=cors-headers"
+      - "traefik.http.middlewares.cors-headers.headers.customResponseHeaders.Cross-Origin-Opener-Policy=same-origin"
+      - "traefik.http.middlewares.cors-headers.headers.customResponseHeaders.Cross-Origin-Embedder-Policy=require-corp"
