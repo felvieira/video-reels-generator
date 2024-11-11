@@ -1,0 +1,40 @@
+[package]
+name = "video-editor"
+version = "0.1.0"
+description = "Editor de vídeo para Reels"
+authors = ["you"]
+license = ""
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5.0", features = [] }
+embed-resource = "1.7"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.5.0", features = [
+    "protocol-asset",
+    "path-all",
+    "fs-all",
+    "dialog-all",
+    "shell-open"
+] }
+tokio = { version = "1.0", features = ["full", "process"] }
+log = "0.4"
+anyhow = "1.0"
+thiserror = "1.0"
+reqwest = { version = "0.11", features = ["json", "stream", "rustls-tls"], default-features = false }
+regex = "1.5"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

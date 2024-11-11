@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"app\\\\page.js -> ../components/VideoEditor\":{\"id\":\"app\\\\page.js -> ../components/VideoEditor\",\"files\":[\"static/chunks/_app-pages-browser_src_components_VideoEditor_jsx.js\"]}}"
