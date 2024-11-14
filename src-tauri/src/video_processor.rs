@@ -10,8 +10,8 @@ use regex::Regex;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct ProcessProgress {
-    stage: String,
-    progress: f32,
+    pub stage: String,
+    pub progress: f32,
 }
 
 #[derive(Debug, Deserialize)]

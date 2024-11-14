@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Box, Select, Input, Button, VStack, Text, useToast } from '@chakra-ui/react';
+import { Select, Input, Button, VStack, Text } from '@chakra-ui/react';
+import { Key } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const PROVIDERS = {
   ollama: {
@@ -12,7 +14,7 @@ const PROVIDERS = {
   openai: {
     name: 'OpenAI',
     requiresKey: true,
-    models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'] // Modelos fixos da OpenAI
+    models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
   },
   anthropic: {
     name: 'Anthropic',
@@ -25,7 +27,6 @@ function LLMConfig({ provider, model, onProviderChange, onModelChange }) {
   const [apiKey, setApiKey] = useState('');
   const [availableModels, setAvailableModels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
 
   // Carregar configurações do localStorage
   useEffect(() => {
@@ -41,31 +42,19 @@ function LLMConfig({ provider, model, onProviderChange, onModelChange }) {
       setIsLoading(true);
       try {
         if (provider === 'ollama') {
-          // Buscar modelos do Ollama
           const response = await fetch('http://localhost:11434/api/tags');
           const data = await response.json();
           if (data.models) {
             setAvailableModels(data.models.map(m => m.name));
           }
-        } 
-        else {
-          // Para outros providers, usar lista estática
+        } else {
           setAvailableModels(PROVIDERS[provider]?.models || []);
-          
-          // Se o modelo atual não existe na lista do provider, selecionar o primeiro
           if (!PROVIDERS[provider]?.models.includes(model)) {
             onModelChange(PROVIDERS[provider]?.models[0] || '');
           }
         }
       } catch (error) {
         console.error(`Erro ao buscar modelos do ${provider}:`, error);
-        toast({
-          title: `Erro ao buscar modelos do ${PROVIDERS[provider].name}`,
-          description: error.message,
-          status: 'error',
-          duration: 5000,
-          isClosable: true
-        });
         setAvailableModels([]);
       } finally {
         setIsLoading(false);
@@ -77,78 +66,81 @@ function LLMConfig({ provider, model, onProviderChange, onModelChange }) {
 
   const saveConfig = () => {
     const savedConfig = JSON.parse(localStorage.getItem('llmConfig') || '{}');
-    
-    // Garantir que o modelo salvo existe para este provider
-    const modelToSave = PROVIDERS[provider]?.models.includes(model) ? 
-      model : 
-      PROVIDERS[provider]?.models[0];
-
     savedConfig[provider] = {
       provider: provider,
       apiKey: apiKey,
-      model: modelToSave
+      model: PROVIDERS[provider]?.models.includes(model) ? model : PROVIDERS[provider]?.models[0]
     };
-    
     localStorage.setItem('llmConfig', JSON.stringify(savedConfig));
-
-    toast({
-      title: 'Configurações salvas',
-      status: 'success',
-      duration: 3000,
-      isClosable: true
-    });
   };
 
   return (
     <VStack spacing={4} align="stretch">
-      <Box>
-        <Text mb={2}>Provedor de IA:</Text>
-        <Select
-          value={provider}
-          onChange={(e) => onProviderChange(e.target.value)}
+      <div className="space-y-4">
+        <div>
+          <Text mb={2}>Provedor de IA:</Text>
+          <Select
+            value={provider}
+            onChange={(e) => onProviderChange(e.target.value)}
+            className={cn(
+              "w-full",
+              "bg-[#1C1F2E] border-none text-white"
+            )}
+          >
+            {Object.entries(PROVIDERS).map(([key, value]) => (
+              <option key={key} value={key}>
+                {value.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {PROVIDERS[provider]?.requiresKey && (
+          <div>
+            <Text mb={2}>API Key:</Text>
+            <div className="relative">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={`${PROVIDERS[provider].name} API Key`}
+                className="h-12 bg-[#1C1F2E] border-none text-white placeholder-gray-500 pl-10"
+              />
+              <Key className="absolute left-3 top-3.5 h-5 w-5 text-gray-500" />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Text mb={2}>Modelo:</Text>
+          <Select
+            value={model}
+            onChange={(e) => onModelChange(e.target.value)}
+            isDisabled={isLoading}
+            className={cn(
+              "w-full",
+              "bg-[#1C1F2E] border-none text-white"
+            )}
+          >
+            {availableModels.map((modelName) => (
+              <option key={modelName} value={modelName}>
+                {modelName}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <Button
+          className={cn(
+            "w-full h-12 transition-all duration-300",
+            "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          )}
+          onClick={saveConfig}
+          isDisabled={PROVIDERS[provider]?.requiresKey && !apiKey}
         >
-          {Object.entries(PROVIDERS).map(([key, value]) => (
-            <option key={key} value={key}>
-              {value.name}
-            </option>
-          ))}
-        </Select>
-      </Box>
-
-      {PROVIDERS[provider]?.requiresKey && (
-        <Box>
-          <Text mb={2}>API Key:</Text>
-          <Input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={`${PROVIDERS[provider].name} API Key`}
-          />
-        </Box>
-      )}
-
-      <Box>
-        <Text mb={2}>Modelo:</Text>
-        <Select
-          value={model}
-          onChange={(e) => onModelChange(e.target.value)}
-          isDisabled={isLoading}
-        >
-          {availableModels.map((modelName) => (
-            <option key={modelName} value={modelName}>
-              {modelName}
-            </option>
-          ))}
-        </Select>
-      </Box>
-
-      <Button
-        colorScheme="blue"
-        onClick={saveConfig}
-        isDisabled={PROVIDERS[provider]?.requiresKey && !apiKey}
-      >
-        Salvar Configurações
-      </Button>
+          Salvar Configurações
+        </Button>
+      </div>
     </VStack>
   );
 }

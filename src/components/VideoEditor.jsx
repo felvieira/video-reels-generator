@@ -1,28 +1,95 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Box, Button, VStack, HStack, Progress, Text, useToast, Tabs, TabList, TabPanels, Tab, TabPanel, Heading } from '@chakra-ui/react';
-import LLMConfig from './LLMConfig';
-import SocialMediaResults from './SocialMediaResults';
-import { SOCIAL_MEDIA_PROMPT } from '../utils/prompts';
+import { useState, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { 
+  Youtube, 
+  Upload, 
+  Settings, 
+  Loader2, 
+  Video, 
+  FileText, 
+  Hash, 
+  Type,
+  Linkedin, 
+  Instagram, 
+  Facebook, 
+  Youtube as YoutubeIcon, 
+  Wand2, 
+  Key, 
+  Download, 
+  Check,
+  ArrowDown,
+  Gauge,
+  Zap,
+  Star,
+  Share2,
+  Sun,
+  Moon
+} from 'lucide-react';
+
+const translations = {
+  en: {
+    title: "Convert Video to Instagram Reels",
+    subtitle: "Transform your content effortlessly",
+    // ... resto das traduções em inglês
+  },
+  pt: {
+    title: "Converter Vídeo para Instagram Reels",
+    subtitle: "Transforme seu conteúdo sem esforço",
+    // ... resto das traduções em português
+  }
+};
 
 function VideoEditor({ videoFile }) {
-  const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
+  const [conversionComplete, setConversionComplete] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('reels');
+  const [quality, setQuality] = useState('media');
+  const [aiModel, setAiModel] = useState('gpt-4');
+  const [downloadSeparate, setDownloadSeparate] = useState('nao');
+  const [selectedSocialNetworks, setSelectedSocialNetworks] = useState({
+    linkedin: false,
+    instagram: false,
+    tiktok: false,
+    facebook: false,
+    youtube: false
+  });
+  const [generatedContent, setGeneratedContent] = useState({
+    linkedin: '',
+    instagram: '',
+    tiktok: '',
+    facebook: '',
+    youtube: ''
+  });
+  const [activeTab, setActiveTab] = useState('converter');
+  const [transcriptionContent, setTranscriptionContent] = useState('');
+  const [selectedContentType, setSelectedContentType] = useState('');
+  const [language, setLanguage] = useState('pt');
+  const [theme, setTheme] = useState('dark');
   const [stage, setStage] = useState('');
-  const [transcription, setTranscription] = useState('');
-  const [llmProvider, setLlmProvider] = useState('openai');
-  const [llmModel, setLlmModel] = useState('gpt-3.5-turbo');
-  const [videoQuality, setVideoQuality] = useState('medium');
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const toast = useToast();
-  const [videoUrl, setVideoUrl] = useState('');
-  const [debugMode, setDebugMode] = useState(false);
-  const [socialMediaResults, setSocialMediaResults] = useState(null);
+
+  const t = translations[language];
+
+  useEffect(() => {
+    document.body.className = theme;
+  }, [theme]);
 
   useEffect(() => {
     if (videoFile && videoFile.url) {
@@ -30,55 +97,43 @@ function VideoEditor({ videoFile }) {
     }
   }, [videoFile]);
 
-  const getQualitySettings = (quality) => {
-    const settings = {
-      high: {
-        preset: 'slow',
-        crf: '18'
-      },
-      medium: {
-        preset: 'medium',
-        crf: '23'
-      },
-      low: {
-        preset: 'ultrafast',
-        crf: '28'
-      }
-    };
-    return settings[quality];
-  };
+  // Escutar eventos de progresso do Rust
+  useEffect(() => {
+    const unsubscribe = listen('conversion-progress', (event) => {
+      const { stage, progress } = event.payload;
+      setStage(stage);
+      setConversionProgress(progress);
+    });
 
-  const extractFaceAndConvert = async () => {
+    return () => {
+      unsubscribe.then(fn => fn());
+    };
+  }, []);
+
+  const handleConvert = async () => {
     if (!videoFile) return;
 
     try {
-      setProcessing(true);
-      setProgress(0);
+      setIsProcessing(true);
+      setConversionProgress(0);
 
       console.log('Arquivo de vídeo:', videoFile);
       console.log('Caminho do arquivo:', videoFile.path);
-      console.log('Qualidade selecionada:', videoQuality);
+      console.log('Qualidade selecionada:', quality);
 
       // Chamar a função Rust via Tauri
       const outputPath = await invoke('convert_to_reels', {
         inputPath: videoFile.path,
-        quality: videoQuality
+        quality: quality
       });
 
       console.log('Caminho de saída:', outputPath);
-
-      toast({
-        title: 'Vídeo convertido com sucesso',
-        description: `Salvo em: ${outputPath}`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true
-      });
+      setConversionComplete(true);
 
     } catch (error) {
+    
       console.error('Erro detalhado:', error);
-      
-      // Não mostrar toast de erro se for cancelamento
+
       if (!error.toString().includes('cancelada pelo usuário')) {
         toast({
           title: 'Erro ao processar vídeo',
@@ -89,370 +144,333 @@ function VideoEditor({ videoFile }) {
         });
       }
     } finally {
-      setProcessing(false);
-      setProgress(0);
+      setIsProcessing(false);
+      setConversionProgress(0);
       setStage('');
     }
   };
 
-  // Escutar eventos de progresso do Rust
-  useEffect(() => {
-    const unsubscribe = listen('conversion-progress', (event) => {
-      const { stage, progress } = event.payload;
-      setStage(stage);
-      setProgress(progress);
-    });
+  const formats = [
+    { value: 'reels', label: 'INSTAGRAM REELS', res: '1080x1920', icon: Instagram },
+    { value: 'tiktok', label: 'TIKTOK', res: '1080x1920', icon: Share2 },
+    { value: 'shorts', label: 'SHORTS', res: '1080x1920', icon: YoutubeIcon },
+  ];
 
-    return () => {
-      unsubscribe.then(fn => fn());
-    };
-  }, []);
+  const qualities = [
+    { value: 'baixa', label: t.quality === 'QUALITY' ? 'LOW' : 'BAIXA', icon: Gauge },
+    { value: 'media', label: t.quality === 'QUALITY' ? 'MEDIUM' : 'MÉDIA', icon: Zap },
+    { value: 'alta', label: t.quality === 'QUALITY' ? 'HIGH' : 'ALTA', icon: Star },
+  ];
 
-  const transcribeAudio = async () => {
-    if (!videoFile) return;
-
-    try {
-      setProcessing(true);
-      setStage('Extraindo áudio...');
-
-      // Usar Tauri/Rust para extrair o áudio
-      const audioPath = await invoke('extract_audio', {
-        inputPath: videoFile.path
-      });
-
-      setStage('Transcrevendo áudio...');
-
-      const savedConfig = JSON.parse(localStorage.getItem('llmConfig') || '{}');
-      const currentConfig = savedConfig[llmProvider];
-
-      const formData = new FormData();
-      formData.append('audio', audioPath);
-      formData.append('provider', currentConfig.provider);
-      formData.append('model', 'whisper-1');
-      formData.append('apiKey', currentConfig.apiKey || '');
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-
-      setTranscription(data.transcription);
-      
-      toast({
-        title: 'Transcrição concluída',
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      });
-
-    } catch (error) {
-      console.error('Transcription error:', error);
-      toast({
-        title: 'Erro na transcrição',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      });
-    } finally {
-      setProcessing(false);
-      setStage('');
-    }
-  };
-
-  const extractHighlight = async () => {
-    if (!videoFile || !transcription) return;
-
-    try {
-      const response = await fetch('/api/highlight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          transcription,
-          provider: llmProvider,
-          model: llmModel
-        })
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-
-      // Processar o highlight
-      await processHighlight(data.timestamp);
-    } catch (error) {
-      toast({
-        title: 'Erro ao extrair highlight',
-        description: error.message,
-        status: 'error'
-      });
-    }
-  };
-
-  const generateSocialMediaPosts = async () => {
-    if (!transcription) {
-      toast({
-        title: 'Transcrição necessária',
-        description: 'Faça a transcrição do vídeo primeiro',
-        status: 'warning',
-        duration: 3000,
-      });
-      return;
-    }
-
-    try {
-      setProcessing(true);
-      setStage('Gerando sugestões para redes sociais...');
-
-      const savedConfig = JSON.parse(localStorage.getItem('llmConfig') || '{}');
-      const currentConfig = savedConfig[llmProvider];
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: SOCIAL_MEDIA_PROMPT.replace('{{transcription}}', transcription),
-          provider: currentConfig.provider,
-          model: currentConfig.model,
-          apiKey: currentConfig.apiKey
-        })
-      });
-
-      if (!response.ok) throw new Error('Falha ao gerar sugestões');
-
-      const data = await response.json();
-      setSocialMediaResults(JSON.parse(data.content));
-
-      toast({
-        title: 'Sugestões geradas com sucesso',
-        status: 'success',
-        duration: 3000,
-      });
-
-    } catch (error) {
-      console.error('Error generating social media posts:', error);
-      toast({
-        title: 'Erro ao gerar sugestões',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-      });
-    } finally {
-      setProcessing(false);
-      setStage('');
-    }
-  };
+  const socialNetworks = [
+    { key: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+    { key: 'instagram', icon: Instagram, label: 'Instagram' },
+    { key: 'tiktok', icon: Share2, label: 'TikTok' },
+    { key: 'facebook', icon: Facebook, label: 'Facebook' },
+    { key: 'youtube', icon: YoutubeIcon, label: 'YouTube' },
+  ];
 
   return (
-    <VStack spacing={6} w="full">
-      <Tabs w="full">
-        <TabList>
-          <Tab>Editor</Tab>
-          <Tab>Configurações</Tab>
-        </TabList>
+    <div className={cn(
+      "min-h-screen font-sans",
+      theme === 'dark' 
+        ? "bg-gradient-to-br from-[#0A0C10] to-[#1A1C20] text-white" 
+        : "bg-gradient-to-br from-gray-100 to-white text-gray-900"
+    )}>
+      <div className="container mx-auto p-6">
+        <div className="flex justify-end space-x-4 mb-6">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setLanguage(prev => prev === 'en' ? 'pt' : 'en')}
+          >
+            {language === 'en' ? '🇺🇸' : '🇧🇷'}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
+          </Button>
+        </div>
 
-        <TabPanels>
-          <TabPanel>
-            <VStack spacing={6}>
-              <Box w="full" maxW="xl" position="relative">
-                {videoFile && videoUrl && (
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    controls
-                    style={{ width: '100%' }}
-                  />
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-4 mb-8"
+        >
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center",
+            theme === 'dark' ? "bg-gradient-to-br from-blue-500 to-purple-600" : "bg-gradient-to-br from-blue-400 to-purple-500"
+          )}>
+            <Video className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className={cn(
+              "text-3xl font-bold",
+              theme === 'dark' ? "bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600" : "text-blue-600"
+            )}>
+              {t.title}
+            </h1>
+            <p className={theme === 'dark' ? "text-gray-400" : "text-gray-600"}>{t.subtitle}</p>
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-[400px_1fr_400px] gap-6">
+          {/* Left Panel - Upload */}
+          <Card className={theme === 'dark' ? "bg-[#141625]/80 border-none backdrop-blur-sm" : "bg-white"}>
+            <CardContent className="p-6 space-y-6">
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <h2 className={cn(
+                  "text-lg font-semibold uppercase",
+                  theme === 'dark' ? "text-blue-400" : "text-blue-600"
+                )}>{t.format}</h2>
+                <RadioGroup
+                  value={selectedFormat}
+                  onValueChange={setSelectedFormat}
+                  className="grid grid-cols-2 gap-4"
+                >
+                  {formats.map((format) => (
+                    <Label
+                      key={format.value}
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all duration-300",
+                        theme === 'dark' 
+                          ? "bg-[#1C1F2E] hover:bg-[#252942]"
+                          : "bg-gray-100 hover:bg-gray-200",
+                        selectedFormat === format.value && (theme === 'dark' ? "ring-2 ring-blue-500" : "ring-2 ring-blue-400")
+                      )}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <format.icon className={cn(
+                          "w-5 h-5",
+                          selectedFormat === format.value 
+                            ? (theme === 'dark' ? "text-blue-400" : "text-blue-600")
+                            : (theme === 'dark' ? "text-gray-400" : "text-gray-600")
+                        )} />
+                        <span className={theme === 'dark' ? "text-white" : "text-gray-900"}>{format.label}</span>
+                      </div>
+                      <span className={theme === 'dark' ? "text-gray-400" : "text-gray-600"}>{format.res}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </motion.div>
+
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <h2 className={cn(
+                  "text-lg font-semibold uppercase",
+                  theme === 'dark' ? "text-blue-400" : "text-blue-600"
+                )}>{t.quality}</h2>
+                <RadioGroup
+                  value={quality}
+                  onValueChange={setQuality}
+                  className="grid grid-cols-3 gap-4"
+                >
+                  {qualities.map((q) => (
+                    <Label
+                      key={q.value}
+                      className={cn(
+                        "flex items-center justify-center space-x-2 p-2 rounded-lg cursor-pointer transition-all duration-300",
+                        theme === 'dark' 
+                          ? "bg-[#1C1F2E] hover:bg-[#252942]"
+                          : "bg-gray-100 hover:bg-gray-200",
+                        quality === q.value && (theme === 'dark' ? "ring-2 ring-blue-500" : "ring-2 ring-blue-400")
+                      )}
+                    >
+                      <q.icon className={cn(
+                        "w-5 h-5",
+                        quality === q.value 
+                          ? (theme === 'dark' ? "text-blue-400" : "text-blue-600")
+                          : (theme === 'dark' ? "text-gray-400" : "text-gray-600")
+                      )} />
+                      <span className={theme === 'dark' ? "text-white" : "text-gray-900"}>{q.label}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </motion.div>
+
+              <Button 
+                className={cn(
+                  "w-full h-12 transition-all duration-300",
+                  theme === 'dark'
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                 )}
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-              </Box>
-
-              <HStack spacing={4} wrap="wrap" justify="center">
-                <Button
-                  colorScheme="blue"
-                  onClick={extractFaceAndConvert}
-                  isLoading={processing}
-                  isDisabled={processing}
-                >
-                  Converter para Reels
-                </Button>
-                <Button
-                  colorScheme="green"
-                  onClick={transcribeAudio}
-                  isDisabled={!videoFile || processing}
-                  isLoading={processing && stage.includes('Transcrevendo')}
-                >
-                  Transcrever Áudio
-                </Button>
-                <Button
-                  colorScheme="purple"
-                  onClick={extractHighlight}
-                  isDisabled={!transcription}
-                >
-                  Extrair Highlight
-                </Button>
-                <Button
-                  colorScheme="teal"
-                  onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
-                >
-                  {subtitlesEnabled ? 'Desativar Legendas' : 'Ativar Legendas'}
-                </Button>
-              </HStack>
-
-              <Box w="full">
-                <Text mb={2}>Qualidade do Vídeo:</Text>
-                <HStack spacing={4}>
-                  <Button
-                    size="sm"
-                    colorScheme={videoQuality === 'low' ? 'blue' : 'gray'}
-                    onClick={() => setVideoQuality('low')}
+                onClick={handleConvert}
+                disabled={isProcessing || !videoFile}
+              >
+                {isProcessing ? (
+                  <motion.div
+                    className="flex items-center justify-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                   >
-                    Baixa (Mais Rpido)
-                  </Button>
-                  <Button
-                    size="sm"
-                    colorScheme={videoQuality === 'medium' ? 'blue' : 'gray'}
-                    onClick={() => setVideoQuality('medium')}
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    {t.converting}
+                  </motion.div>
+                ) : (
+                  <>
+                    <Video className="w-5 h-5 mr-2" />
+                    {t.generateReels}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Center Panel - Preview */}
+          <Card className={theme === 'dark' ? "bg-[#141625]/80 border-none backdrop-blur-sm" : "bg-white"}>
+            <CardContent className="p-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className={cn(
+                  "w-full p-1 rounded-lg",
+                  theme === 'dark' ? "bg-[#1C1F2E]" : "bg-gray-100"
+                )}>
+                  <TabsTrigger 
+                    value="converter" 
+                    className={cn(
+                      "flex-1 rounded-md transition-all duration-300",
+                      theme === 'dark' 
+                        ? "data-[state=active]:bg-blue-600" 
+                        : "data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                    )}
                   >
-                    Média
-                  </Button>
-                  <Button
-                    size="sm"
-                    colorScheme={videoQuality === 'high' ? 'blue' : 'gray'}
-                    onClick={() => setVideoQuality('high')}
+                    {t.title}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="ferramentas" 
+                    className={cn(
+                      "flex-1 rounded-md transition-all duration-300",
+                      theme === 'dark' 
+                        ? "data-[state=active]:bg-purple-600" 
+                        : "data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+                    )}
                   >
-                    Alta (Mais Lento)
-                  </Button>
-                </HStack>
-              </Box>
+                    {t.tools}
+                  </TabsTrigger>
+                </TabsList>
 
-              <Box w="full">
-                <Button
-                  size="sm"
-                  colorScheme={debugMode ? 'orange' : 'gray'}
-                  onClick={() => setDebugMode(!debugMode)}
-                >
-                  {debugMode ? 'Modo Debug: Ativado' : 'Modo Debug: Desativado'}
-                </Button>
-              </Box>
+                <TabsContent value="converter" className="space-y-6">
+                  <AnimatePresence>
+                    {isLoading ? (
+                      <Skeleton className="w-full aspect-video rounded-lg" />
+                    ) : videoUrl ? (
+                      <motion.video
+                        key="video"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        src={videoUrl}
+                        controls
+                        className="w-full rounded-lg"
+                      />
+                    ) : (
+                      <motion.div
+                        key="placeholder"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className={cn(
+                          "aspect-video rounded-lg flex items-center justify-center",
+                          theme === 'dark' ? "bg-[#1C1F2E]" : "bg-gray-100"
+                        )}
+                      >
+                        <p className={theme === 'dark' ? "text-gray-400" : "text-gray-600"}>{t.previewVideo}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </TabsContent>
 
-              {processing && (
-                <VStack w="full" spacing={2}>
-                  <Progress 
-                    size="sm" 
-                    value={progress} 
-                    w="full" 
-                    colorScheme="blue"
-                    hasStripe
-                    isAnimated
-                  />
-                  <Text fontSize="sm" color="gray.600">
-                    {stage} ({Math.round(progress)}%)
-                  </Text>
-                </VStack>
-              )}
-              
-              {transcription && (
-                <Box w="full" p={4} bg="gray.50" borderRadius="md">
-                  <Text fontWeight="bold">Transcrição:</Text>
-                  <Text>{transcription}</Text>
-                </Box>
-              )}
-            </VStack>
-          </TabPanel>
+                <TabsContent value="ferramentas" className="space-y-6">
+                  {/* Ferramentas de IA aqui */}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
 
-          <TabPanel>
-            <LLMConfig
-              provider={llmProvider}
-              model={llmModel}
-              onProviderChange={setLlmProvider}
-              onModelChange={setLlmModel}
-            />
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
-
-      <HStack spacing={4}>
-        <Button
-          colorScheme="green"
-          onClick={transcribeAudio}
-          isDisabled={!videoFile || processing}
-          isLoading={processing && stage.includes('Transcrevendo')}
-        >
-          Transcrever Áudio
-        </Button>
-
-        <Button
-          colorScheme="pink"
-          onClick={generateSocialMediaPosts}
-          isDisabled={!transcription || processing}
-          isLoading={processing && stage.includes('Gerando sugestões')}
-        >
-          Preparar Posts para Redes Sociais
-        </Button>
-      </HStack>
-
-      {transcription && (
-        <Box w="full" p={4} bg="gray.50" borderRadius="md">
-          <Text fontWeight="bold">Transcrição:</Text>
-          <Text>{transcription}</Text>
-        </Box>
-      )}
-
-      {socialMediaResults && (
-        <Box mt={6} w="full">
-          <Heading size="md" mb={4}>Sugestões para Redes Sociais</Heading>
-          <SocialMediaResults results={socialMediaResults} />
-        </Box>
-      )}
-    </VStack>
+          {/* Right Panel - Processing and Generated Content */}
+          <Card className={theme === 'dark' ? "bg-[#141625]/80 border-none backdrop-blur-sm" : "bg-white"}>
+            <CardContent className="p-6">
+              <AnimatePresence>
+                {activeTab === 'converter' ? (
+                  isProcessing ? (
+                    <motion.div 
+                      className="space-y-6"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <div className={cn(
+                        "flex items-center justify-center aspect-square rounded-lg",
+                        theme === 'dark' 
+                          ? "bg-gradient-to-br from-blue-500/20 to-purple-600/20"
+                          : "bg-gradient-to-br from-blue-100 to-purple-100"
+                      )}>
+                        <div className="text-center">
+                          <Loader2 className={cn(
+                            "w-16 h-16 mx-auto mb-4 animate-spin",
+                            theme === 'dark' ? "text-blue-500" : "text-blue-600"
+                          )} />
+                          <p className={cn(
+                            "text-lg font-semibold",
+                            theme === 'dark' ? "text-blue-400" : "text-blue-600"
+                          )}>{stage}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className={theme === 'dark' ? "text-lg font-semibold text-blue-400" : "text-lg font-semibold text-blue-600"}>{t.converting}</h3>
+                        <Progress value={conversionProgress} className="w-full" />
+                        <p className={theme === 'dark' ? "text-sm text-gray-400" : "text-sm text-gray-600"}>Progresso: {conversionProgress}%</p>
+                      </div>
+                    </motion.div>
+                  ) : conversionComplete ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4"
+                    >
+                      <h3 className={theme === 'dark' ? "text-lg font-semibold text-green-400" : "text-lg font-semibold text-green-600"}>{t.conversionComplete}</h3>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      className={cn(
+                        "flex items-center justify-center aspect-square rounded-lg",
+                        theme === 'dark' 
+                          ? "bg-gradient-to-br from-blue-500/10 to-purple-600/10"
+                          : "bg-gradient-to-br from-blue-50 to-purple-50"
+                      )}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <p className={theme === 'dark' ? "text-gray-400 text-lg" : "text-gray-600 text-lg"}>{t.processingStatus}</p>
+                    </motion.div>
+                  )
+                ) : (
+                  <div className="space-y-6">
+                    {/* Conteúdo da aba de ferramentas */}
+                  </div>
+                )}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
-}
-
-function generateSRT(transcription) {
-  // Dividir o texto em segmentos de aproximadamente 7 palavras
-  const words = transcription.split(' ');
-  const segments = [];
-  let currentSegment = [];
-  let index = 1;
-  let timeOffset = 0;
-
-  for (const word of words) {
-    currentSegment.push(word);
-    if (currentSegment.length >= 7) {
-      const duration = 3; // 3 segundos por segmento
-      const startTime = formatSRTTime(timeOffset);
-      timeOffset += duration;
-      const endTime = formatSRTTime(timeOffset);
-
-      segments.push(`${index}\n${startTime} --> ${endTime}\n${currentSegment.join(' ')}\n\n`);
-      currentSegment = [];
-      index++;
-    }
-  }
-
-  if (currentSegment.length > 0) {
-    const duration = 3;
-    const startTime = formatSRTTime(timeOffset);
-    timeOffset += duration;
-    const endTime = formatSRTTime(timeOffset);
-    segments.push(`${index}\n${startTime} --> ${endTime}\n${currentSegment.join(' ')}\n\n`);
-  }
-
-  return segments.join('');
-}
-
-function formatSRTTime(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
 }
 
 export default VideoEditor;

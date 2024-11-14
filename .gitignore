@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 /src-tauri/resources/ffmpeg.exe
 /src-tauri/resources
+
+# Environment variables
+.env
+.env.local
+/.next
+/.bolt

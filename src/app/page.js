@@ -1,34 +1,17 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
-import { Box, Container, Heading } from '@chakra-ui/react';
 import dynamic from 'next/dynamic';
-import VideoUploader from '../components/VideoUploader';
 
-// Carregamento dinâmico do VideoEditor com SSR desabilitado
-const VideoEditor = dynamic(() => import('../components/VideoEditor'), {
-  ssr: false,
+// Importar o componente principal de forma dinâmica, sem SSR
+const MainApp = dynamic(() => import('@/components/MainApp'), {
+  ssr: false, // Desabilitar Server Side Rendering
   loading: () => (
-    <Box p={4} textAlign="center">
-      Carregando editor...
-    </Box>
+    <div className="min-h-screen flex items-center justify-center">
+      <p>Carregando...</p>
+    </div>
   )
 });
 
-export default function Home() {
-  const [selectedVideo, setSelectedVideo] = useState(null);
-
-  return (
-    <Container maxW="container.xl" py={8}>
-      <Box textAlign="center" mb={8}>
-        <Heading>Video Editor para Reels</Heading>
-      </Box>
-      
-      {!selectedVideo ? (
-        <VideoUploader onVideoSelect={setSelectedVideo} />
-      ) : (
-        <VideoEditor videoFile={selectedVideo} />
-      )}
-    </Container>
-  );
+export default function Page() {
+  return <MainApp />;
 }

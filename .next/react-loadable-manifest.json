@@ -1,8 +1,16 @@
 {
-  "app\\page.js -> ../components/VideoEditor": {
-    "id": "app\\page.js -> ../components/VideoEditor",
+  "..\\app\\page.js -> @/components/MainApp": {
+    "id": "..\\app\\page.js -> @/components/MainApp",
     "files": [
-      "static/chunks/_app-pages-browser_src_components_VideoEditor_jsx.js"
+      "static/chunks/_app-pages-browser_src_components_MainApp_jsx.js"
     ]
+  },
+  "..\\components\\MainApp.jsx -> @tauri-apps/api/event": {
+    "id": "..\\components\\MainApp.jsx -> @tauri-apps/api/event",
+    "files": []
+  },
+  "..\\components\\MainApp.jsx -> @tauri-apps/api/tauri": {
+    "id": "..\\components\\MainApp.jsx -> @tauri-apps/api/tauri",
+    "files": []
   }
 }
