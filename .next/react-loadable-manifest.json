@@ -12,5 +12,29 @@
   "..\\components\\MainApp.jsx -> @tauri-apps/api/tauri": {
     "id": "..\\components\\MainApp.jsx -> @tauri-apps/api/tauri",
     "files": []
+  },
+  "..\\components\\VideoUploader.jsx -> @tauri-apps/api/event": {
+    "id": "..\\components\\VideoUploader.jsx -> @tauri-apps/api/event",
+    "files": []
+  },
+  "..\\components\\screens\\AudioTranscriber.jsx -> @tauri-apps/api/tauri": {
+    "id": "..\\components\\screens\\AudioTranscriber.jsx -> @tauri-apps/api/tauri",
+    "files": []
+  },
+  "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/dialog": {
+    "id": "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/dialog",
+    "files": []
+  },
+  "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/event": {
+    "id": "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/event",
+    "files": []
+  },
+  "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/tauri": {
+    "id": "..\\components\\screens\\VideoConverter.jsx -> @tauri-apps/api/tauri",
+    "files": []
+  },
+  "..\\components\\screens\\VideoTranscriber.jsx -> @tauri-apps/api/tauri": {
+    "id": "..\\components\\screens\\VideoTranscriber.jsx -> @tauri-apps/api/tauri",
+    "files": []
   }
 }

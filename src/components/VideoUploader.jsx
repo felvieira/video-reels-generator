@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
-import { listen } from '@tauri-apps/api/event';
 
 const translations = {
   en: {
@@ -38,7 +37,7 @@ const translations = {
   }
 };
 
-function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dark', onDownloadProgress }) {
+export default function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dark', onDownloadProgress }) {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
@@ -52,33 +51,68 @@ function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dar
     if (!file) return;
 
     try {
-      // Criar um objeto File com o caminho do arquivo
+      // Logar o arquivo recebido para debug
+      console.log('Arquivo recebido:', {
+        name: file.name,
+        path: file.path,
+        type: file.type,
+        size: file.size
+      });
+
+      // Criar objeto com o caminho do arquivo
       const videoFile = {
         path: file.path,
         name: file.name,
         type: file.type,
-        url: URL.createObjectURL(file)
+        url: URL.createObjectURL(file),
+        fromYoutube: false
       };
 
-      setVideoFile(videoFile);
       onVideoSelect(videoFile);
-
     } catch (error) {
       console.error('Erro ao processar arquivo:', error);
-      toast({
-        title: 'Erro ao processar arquivo',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true
+      onDownloadProgress({
+        stage: 'Erro ao processar arquivo',
+        progress: 0,
+        isLoading: false,
+        error: true
       });
     }
-  }, [onVideoSelect]);
+  }, [onVideoSelect, onDownloadProgress]);
+
+  // Adicionar função para selecionar arquivo via diálogo
+  const handleFileSelect = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Video',
+          extensions: ['mp4', 'webm', 'ogg']
+        }]
+      });
+
+      if (selected) {
+        // Criar objeto do vídeo
+        const videoFile = {
+          path: selected,
+          name: selected.split('\\').pop().split('/').pop(),
+          type: 'video/mp4',
+          url: await convertFileSrc(selected),
+          fromYoutube: false
+        };
+
+        console.log('Arquivo selecionado:', videoFile);
+        onVideoSelect(videoFile);
+      }
+    } catch (error) {
+      console.error('Erro ao selecionar arquivo:', error);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'video/*': ['.mp4', '.webm', '.ogg'] },
-    noClick: false, // Permitir clique
+    noClick: true, // Desabilitar clique para usar nosso próprio diálogo
     noKeyboard: true
   });
 
@@ -153,6 +187,7 @@ function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dar
 
     const setupListener = async () => {
       try {
+        const { listen } = await import('@tauri-apps/api/event');
         unsubscribe = await listen('youtube-progress', (event) => {
           const progress = event.payload;
           console.log('Progresso do YouTube:', progress);
@@ -167,7 +202,7 @@ function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dar
 
     return () => {
       if (unsubscribe) {
-        unsubscribe.then(fn => fn());
+        unsubscribe();
       }
     };
   }, []);
@@ -182,15 +217,19 @@ function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dar
         
         <div
           {...getRootProps()}
+          onClick={handleFileSelect} // Usar nosso próprio handler de clique
           className={cn(
             "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-300",
             isDragActive && "border-blue-500 bg-blue-500/10",
-            theme === 'dark' ? "border-gray-600" : "border-gray-300"
+            theme === "dark" ? "border-gray-600" : "border-gray-300"
           )}
         >
           <input {...getInputProps()} />
-          <Upload className={cn("w-12 h-12 mx-auto mb-4", theme === 'dark' ? "text-blue-400" : "text-blue-600")} />
-          <p className={theme === 'dark' ? "text-sm text-gray-400" : "text-sm text-gray-600"}>
+          <Upload className={cn(
+            "w-12 h-12 mx-auto mb-4",
+            theme === "dark" ? "text-blue-400" : "text-blue-600"
+          )} />
+          <p className={theme === "dark" ? "text-sm text-gray-400" : "text-sm text-gray-600"}>
             {t.dropzone}
           </p>
         </div>
@@ -277,5 +316,3 @@ function VideoUploader({ onVideoSelect, onConvert, language = 'pt', theme = 'dar
     </div>
   );
 }
-
-export default VideoUploader;

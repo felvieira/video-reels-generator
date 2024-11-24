@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createCheckoutSession } from '@/lib/stripe';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Video, Sun, Moon, Loader2 } from 'lucide-react';
+import { Video, Sun, Moon, Loader2, Key } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { appWindow } from '@tauri-apps/api/window';
 
@@ -44,6 +44,7 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
     const [email, setEmail] = useState('');
     const [serial, setSerial] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     const { toast } = useToast();
     const [paymentStatus, setPaymentStatus] = useState({
         isProcessing: false,
@@ -56,10 +57,24 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         setIsLoading(true);
 
         try {
+            // Validar formato do email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                throw new Error('Email inválido');
+            }
+
+            // Validar formato do serial (VRG-XXXXXX)
+            const serialRegex = /^VRG-[A-Z0-9]{6,}$/;
+            if (!serialRegex.test(serial)) {
+                throw new Error('Serial inválido');
+            }
+
             const isValid = await verifyLicense(email, serial);
+            
             if (!isValid) {
                 throw new Error('Licença inválida');
             }
@@ -67,16 +82,16 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userSerial', serial);
 
-            onSuccess();
-
             toast({
                 title: 'Login realizado com sucesso!',
                 status: 'success',
                 duration: 3000
             });
 
+            onSuccess();
+
         } catch (error) {
-            console.error('Erro no login:', error);
+            setError(error.message);
             toast({
                 title: 'Erro no login',
                 description: error.message,
@@ -278,12 +293,13 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
                                                 ? "bg-[#1C1F2E] border-none text-white placeholder-gray-500"
                                                 : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
                                         )}
+                                        disabled={isLoading}
                                     />
                                     <Input
                                         type="text"
                                         placeholder={t.serialPlaceholder}
                                         value={serial}
-                                        onChange={(e) => setSerial(e.target.value)}
+                                        onChange={(e) => setSerial(e.target.value.toUpperCase())}
                                         required
                                         className={cn(
                                             "h-12",
@@ -291,10 +307,11 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
                                                 ? "bg-[#1C1F2E] border-none text-white placeholder-gray-500"
                                                 : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
                                         )}
+                                        disabled={isLoading}
                                     />
                                     <Button 
                                         type="submit" 
-                                        disabled={isLoading} 
+                                        disabled={isLoading || !email || !serial} 
                                         className={cn(
                                             "w-full h-12 transition-all duration-300",
                                             theme === 'dark'
@@ -302,8 +319,28 @@ export default function LoginForm({ onSuccess, language = 'pt', theme = 'dark', 
                                                 : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                                         )}
                                     >
-                                        {isLoading ? t.verifying : t.enter}
+                                        {isLoading ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Verificando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Key className="w-4 h-4 mr-2" />
+                                                Entrar
+                                            </>
+                                        )}
                                     </Button>
+
+                                    {error && (
+                                        <motion.p
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="text-red-500 text-sm text-center mt-2"
+                                        >
+                                            {error}
+                                        </motion.p>
+                                    )}
                                 </form>
                             </TabsContent>
 
